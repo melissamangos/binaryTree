@@ -1,0 +1,471 @@
+{ Melissa Mangos }
+{ May 31, 2013 }
+{ This program simulates bank data in a binary tree }
+program BankData;
+uses wincrt;
+
+{ Assign record }
+type
+   TClientPtr = ^TClient;
+
+   TClient = record
+      FirstName: string[15];
+      LastName : string[30];
+      Phone : string[12];
+      Savings, Chequings, GICs, Bonds, Mutual : real;
+      pLeft, pRight, pParent : TClientPtr;
+   end; { TStudent } 
+
+{ Variable Declarations }
+var
+   pRoot : TClientPtr;
+
+{ METHODS ------------------------------------------------- }
+function LeftOrRight (pChild, pParent : TClientPtr) : string;
+{ Determines if child is to the left or right of given parent }
+var
+   direction : string;
+begin
+   if (pChild^.LastName < pParent^.LastName) or
+      ((pChild^.LastName = pParent^.LastName) and (pChild^.FirstName < pParent^.FirstName)) then
+   { Child is to the left }
+   begin
+      direction := 'Left';
+   end
+   else if (pChild^.LastName > pParent^.LastName) or
+           ((pChild^.LastName = pParent^.LastName) and (pChild^.FirstName > pParent^.FirstName)) then
+   { Child is to the right }
+   begin
+      direction := 'Right';
+   end; { if }
+
+   { Return direction }
+   LeftOrRight := direction;
+end; { LeftOrRight }
+
+
+function SearchClient (pCurrent, pSearch : TClientPtr) : TClientPtr;
+{ Searches for a client }
+var
+   direction : string;
+begin
+   { Checks which side the searched person should go }
+   if (pSearch^.LastName <> pCurrent^.LastName) or (pSearch^.FirstName <> pCurrent^.FirstName) then
+   begin
+      { Find out if child is on parents left or right }
+      direction := LeftOrRight (pSearch, pCurrent);
+
+      if (direction = 'Left') then
+      begin
+         { Checks left for nil and calls function on left if not nil }
+         if (pCurrent^.pLeft <> nil) then
+         begin
+            pCurrent := SearchClient (pCurrent^.pLeft, pSearch);
+         end; { if }
+      end
+      else if (direction = 'Right') then
+      begin
+         { Checks right for nil and calls function on right if not nil }
+         if (pCurrent^.pRight <> nil) then
+         begin
+            pCurrent := SearchClient (pCurrent^.pRight, pSearch);
+         end; { if }
+      end; { if }
+   end; { if }
+
+   { Returns client if found, parent if not found }
+   SearchClient := pCurrent;
+end; { SearchClient }
+
+procedure InsertClient (var pNew : TClientPtr);
+{ Inserts a new client into the binary tree }
+var
+   pCurrent : TClientPtr;
+   direction : string;
+begin
+   { Makes the root equal to the first client }
+   if (pRoot = nil) then
+   begin
+      pRoot := pNew;
+      pRoot^.pParent := nil;
+      pRoot^.pRight := nil;
+      pRoot^.pLeft := nil;
+   end
+   else
+   begin
+      { Searches for a spot to put the new client }
+      pCurrent := SearchClient (pRoot, pNew);
+
+      { If the client does not exist }
+      if (pCurrent^.FirstName <> pNew^.FirstName) or (pCurrent^.LastName <> pNew^.LastName) then
+      begin
+         { Decides if child is on parents left or right }
+         direction := LeftOrRight (pNew, pCurrent);
+
+         { Places the client on the left }
+         if (direction = 'Left') then
+         begin
+            pCurrent^.pLeft := pNew;
+         end
+         { Places the client on the right }
+         else if (direction = 'Right') then
+         begin
+            pCurrent^.pRight := pNew;
+         end;
+
+         { Initializes the new client }
+         pNew^.pParent := pCurrent;
+         pNew^.pLeft := nil;
+         pNew^.pRight := nil;
+      end; { if }
+   end; { if }
+end; { InsertClient }
+
+procedure ReadFile;
+{ Reads clients from text file into nodes }
+var
+   pNew : TClientPtr;
+   fo : text;
+begin
+   { Open text file }
+   assign (fo, 'clients.txt');
+   reset (fo);
+
+   { Initialize an empty list }
+   pRoot := nil;
+
+   while (not (eof (fo))) do
+   begin
+      { Create a new node by reading text file }
+      new (pNew);
+      readln (fo, pNew^.FirstName);
+      readln (fo, pNew^.LastName);
+      readln (fo, pNew^.Phone);
+      readln (fo, pNew^.Savings);
+      readln (fo, pNew^.Chequings);
+      readln (fo, pNew^.GICs);
+      readln (fo, pNew^.Bonds);
+      readln (fo, pNew^.Mutual);
+
+      { Inserts the client from text file }
+      InsertClient (pNew);
+   end; { while }
+end; { ReadFile }
+
+procedure DisplayClient (pClient : TClientPtr);
+{ Displays a given client's information }
+begin
+   writeln ('');
+   writeln (pClient^.FirstName);
+   writeln (pClient^.LastName);
+   writeln (pClient^.Phone);
+   writeln ('Savings Account: ', pClient^.Savings : 8 : 2);
+   writeln ('Chequing Account: ', pClient^.Chequings : 8 : 2);
+   writeln ('G.I.C.s: ', pClient^.GICs : 8 : 2);
+   writeln ('Bonds: ', pClient^.Bonds : 8 : 2);
+   writeln ('Mutual Funds: ', pClient^.Mutual : 8 : 2);
+end; { DisplayClient }
+
+procedure DeleteClient (var pClient : TClientPtr);
+{ Deletes a given client }
+var
+   pReplace : TClientPtr;
+   direction : string;
+begin
+   { Checks if client is on left or right of parent }
+   direction := LeftOrRight (pClient, pClient^.pParent);
+
+   if (pClient^.pLeft = nil) and (pClient^.pRight = nil) then
+   { Leaf node }
+   begin
+      if (direction = 'Left') then
+      { Left side of parent }
+      begin
+         pClient^.pParent^.pLeft := nil;
+      end
+      else if (direction = 'Right') then
+      { Right side of parent }
+      begin
+         pClient^.pParent^.pRight := nil;
+      end; { if }
+   end
+   else if (pClient^.pLeft <> nil) and (pClient^.pRight = nil) then
+   { One child on left }
+   begin
+      if (direction = 'Left') then
+      { Left side of parent }
+      begin
+         { Sets parents left to child }
+         pClient^.pParent^.pLeft := pClient^.pLeft;
+      end
+      else if (direction = 'Right') then
+      { Right side of parent }
+      begin
+         { Sets parents right to child }
+         pClient^.pParent^.pRight := pClient^.pLeft;
+      end; { if } 
+      { Sets child's parent to client' s parent }
+      pClient^.pLeft^.pParent := pClient^.pParent;
+   end
+   else if (pClient^.pRight <> nil) and (pClient^.pLeft = nil) then
+   { One child on right }
+   begin
+      if (direction = 'Left') then
+      { Left side of parent }
+      begin
+         { Sets parents left to child }
+         pClient^.pParent^.pLeft := pClient^.pRight;
+      end
+      else if (direction = 'Right') then
+      { Right side of parent }
+      begin
+         { Sets parents right to child }
+         pClient^.pParent^.pRight := pClient^.pRight;
+      end; { if }
+      { Sets child's parent to client's parent }
+      pClient^.pRight^.pParent := pClient^.pParent;
+   end
+   else if (pClient^.pLeft <> nil) and (pClient^.pRight <> nil) then
+   { Two children }
+   begin
+      { Replaces node with next alphabetically }
+      pReplace := pClient^.pRight;
+      while (pReplace^.pLeft <> nil) do
+      begin
+         pReplace := pReplace^.pLeft;
+      end; { while }
+
+      { Remove the replacement from its original spot }
+      if (pReplace^.pLeft = nil) and (pReplace^.pRight = nil) then
+      { Leaf node }
+      begin
+         pReplace^.pParent^.pLeft := nil;
+      end
+      else if (pReplace^.pLeft = nil) then
+      { Child on the right }
+      begin
+         pReplace^.pParent^.pLeft := pReplace^.pRight;
+         pReplace^.pRight^.pParent := pReplace^.pParent;
+      end
+      else if (pReplace^.pRight = nil) then
+      { Child on the left }
+      begin
+         pReplace^.pParent^.pLeft := pReplace^.pLeft;
+         pReplace^.pLeft^.pParent := pReplace^.pParent;
+      end; { if }
+
+      { Set the replacement to equal the deleted node }
+      if (direction = 'Left') then
+      { Left side of parent }
+      begin
+         pClient^.pParent^.pLeft := pReplace;
+      end
+      else if (direction = 'Right') then
+      { Right side of parent }
+      begin
+         pClient^.pParent^.pRight := pReplace;
+      end; { if }
+
+      { Puts replacement into spot of deleted }
+      pReplace^.pParent := pClient^.pParent;
+      pReplace^.pLeft := pClient^.pLeft;
+      pReplace^.pRight := pClient^.pRight; 
+   end; { if }
+
+   { Dispose node }
+   dispose (pClient);
+end; { DeleteClient }
+
+procedure AlphaClient (pClient : TClientPtr);
+{ Displays the clients in alphabetical order }
+begin
+   if (pClient^.pLeft <> nil) then
+   { Displays on the left using recursion }
+   begin
+      AlphaClient (pClient^.pLeft);
+   end; { if }
+
+   { Display Client }
+   write (pClient^.FirstName, ' ', pClient^.LastName, '   ');
+
+   if (pClient^.pRight <> nil) then
+   { Displays on right using recursion }
+   begin
+      AlphaClient (pClient^.pRight);
+   end; { if }
+end;
+
+{ MAIN PROGRAM -------------------------------------------- }
+{ Variable Decalrations }
+var
+   pSearch, pClient, pNew : TClientPtr;
+   answer, alpha : string;
+begin
+   { Reads Text file and calls input and search functions }
+   ReadFile;
+
+   { Creates a new node to be searched }
+   new (pSearch);
+
+   while (alpha <> 'Yes') do
+   begin                                                  
+      { Inputs a person to search }
+      write ('Enter the client''s first name: ');
+      readln (pSearch^.FirstName);
+      write('Enter the client''s last name: ');
+      readln (pSearch^.LastName);
+
+      { Searches for the person }
+      pClient := SearchClient (pRoot, pSearch);
+
+      if (pClient^.FirstName = pSearch^.FirstName) and (pClient^.LastName = pSearch^.LastName) then
+      begin 
+         { Displays the person's information }
+         DisplayClient (pClient);
+
+         { Asks to delete client }
+         writeln ('');
+         write ('Would you like to delete the client (Yes or No)? ');
+         readln (answer);
+         if (answer = 'Yes') then
+         begin
+            { Deletes the client }
+            DeleteClient (pClient);
+         end;
+      end
+      else
+      begin
+         { If client is not found, asks to insert a new one }
+         writeln ('');
+         write ('Would you like to insert a client (Yes or No)? ');
+         readln (answer);
+         if (answer = 'Yes') then
+         begin
+            { Gets new clients information }
+            new (pNew);
+            pNew^.FirstName := pSearch^.FirstName;
+            pNew^.LastName := pSearch^.LastName;
+            write ('Phone number? ');
+            readln (pNew^.Phone);
+            write ('Savings account? ');
+            readln (pNew^.Savings);
+            write ('Chequing account? ');
+            readln (pNew^.Chequings);
+            write ('G.I.C.s? ');
+            readln (pNew^.GICs);
+            write ('Bonds? ');
+            readln (pNew^.Bonds);
+            write ('Mutual Funds? ');
+            readln (pNew^.Mutual);
+
+            { Inserts client into binary tree }
+            InsertClient (pNew);
+          
+            { Displays new client's information }
+            DisplayClient (pNew);
+         end;
+      end; { if }
+
+      { Asks for alphabetical order (exits the loop) } 
+      writeln ('');
+      write ('Would you like to see the clients alphabetically (Yes to exit)? ');
+      readln (alpha);
+   end;     
+
+   { Displays clients in alphbetical order }
+   AlphaClient (pRoot);
+
+end. { program }
+
+
+(*  
+{ Inserts a new client into the binary tree }
+   { procedure Insert  (Root, new)
+     IF pRoot is a nil THEN
+        Intialize the tree with the new node
+        pLeft and pRight to nil
+        pParent to nil
+        pRoot = pNew
+     ELSE
+        Find where to insert the new node (say at pCurrent (a nil), keep track of pCurrent's parent)
+        IF new node's name < parent's name THEN
+           insert at pParent's Left
+        ELSE (new node's name > parent's name) 
+           pParent's Right
+        END IF
+        close off children
+     END IF   }
+      
+
+
+
+begin
+  initialize an empty tree (pRoot)
+  WHILE now eof DO
+     Create a new node
+     Read the next record into the new node
+
+     Insert new node into the tree
+  END WHILE
+end.
+
+
+DELETING A NODE
+
+There are three situations:
+
+First find node
+
+1. Deleting a leaf node
+   - set the parent's left or right to a nil
+   - dispose of leaf node
+
+2. Node has one child
+   - connect node's parent to node's child
+     ( Four scenarios : left left, left right, right left, right right )
+   - dispose of node
+
+3. Deleting a node with two children
+   - Replace the node with another client (with the next person alphabetically)
+     - go left once then right as far as you can
+       OR
+     - go right once then left as far as you can
+   - use replacement node to take place of the node to be  deleted
+     BUT ... is the replacement node a leaf or does it have one child?
+     IF replacement node is a leaf THEN
+        Set the parents left or right to a nil
+     ELSE
+        Connect the parent to the child
+     END IF
+
+
+
+
+*)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
